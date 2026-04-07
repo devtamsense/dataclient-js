@@ -1,15 +1,47 @@
-import type { Sender } from '../sender'
 import type { Config, SnapshotEvent, Tracker } from '../types'
-import { resetIds, serializeTree } from '../serializer'
-import { getViewport } from '../viewport'
+import type { Sender } from '../utils/sender'
+import { resetIds, serializeTree } from '../dom/serializer'
+import { getViewport } from '../dom/viewport'
 
-export function createSnapshotTracker(config: Config, sender: Sender): Tracker {
-    let lastUrl = ''
-    let urlPollTimer: ReturnType<typeof setInterval> | null = null
-    let checkpointTimer: ReturnType<typeof setInterval> | null = null
-    let hasMutationsSinceLastSnapshot = false
+export class SnapshotTracker implements Tracker {
+    private lastUrl = ''
+    private urlPollTimer: ReturnType<typeof setInterval> | null = null
+    private checkpointTimer: ReturnType<typeof setInterval> | null = null
+    private hasMutations = false
 
-    function recordSnapshot() {
+    constructor(
+        private config: Config,
+        private sender: Sender,
+    ) {}
+
+    start() {
+        this.lastUrl = location.href
+        this.recordSnapshot()
+
+        this.urlPollTimer = setInterval(() => this.pollUrl(), 500)
+        this.checkpointTimer = setInterval(() => this.checkpoint(), this.config.checkpointInterval)
+    }
+
+    stop() {
+        if (this.urlPollTimer) {
+            clearInterval(this.urlPollTimer)
+        }
+        if (this.checkpointTimer) {
+            clearInterval(this.checkpointTimer)
+        }
+    }
+
+    beforeUnload() {
+        if (this.hasMutations) {
+            this.recordSnapshot()
+        }
+    }
+
+    markMutation() {
+        this.hasMutations = true
+    }
+
+    private recordSnapshot() {
         resetIds()
 
         const snapshot: SnapshotEvent = {
@@ -21,53 +53,34 @@ export function createSnapshotTracker(config: Config, sender: Sender): Tracker {
             viewport: getViewport(),
         }
 
-        if (config.debug)
-            console.log(`[Scene2] snapshot: ${location.href} (${snapshot.tree.length} nodes)`)
+        if (this.config.debug) {
+            console.log(`[dataclient] snapshot: ${location.href} (${snapshot.tree.length} nodes)`)
+        }
 
-        sender.add(snapshot)
-        sender.flush()
-        hasMutationsSinceLastSnapshot = false
+        this.sender.add(snapshot)
+        this.sender.flush()
+        this.hasMutations = false
     }
 
-    function pollUrl() {
-        if (location.href !== lastUrl) {
-            const prev = lastUrl
-            lastUrl = location.href
+    private pollUrl() {
+        if (location.href !== this.lastUrl) {
+            const prev = this.lastUrl
+            this.lastUrl = location.href
             if (prev) {
-                if (config.debug)
-                    console.log(`[Scene2] URL changed: ${prev} → ${location.href}`)
-                recordSnapshot()
+                if (this.config.debug) {
+                    console.log(`[dataclient] URL changed: ${prev} → ${location.href}`)
+                }
+                this.recordSnapshot()
             }
         }
     }
 
-    function checkpoint() {
-        if (hasMutationsSinceLastSnapshot) {
-            if (config.debug)
-                console.log('[Scene2] checkpoint snapshot')
-            recordSnapshot()
-        }
-    }
-
-    return {
-        start() {
-            lastUrl = location.href
-            recordSnapshot()
-
-            urlPollTimer = setInterval(pollUrl, 500)
-            checkpointTimer = setInterval(checkpoint, config.checkpointInterval)
-        },
-        stop() {
-            if (urlPollTimer) clearInterval(urlPollTimer)
-            if (checkpointTimer) clearInterval(checkpointTimer)
-        },
-        beforeUnload() {
-            if (hasMutationsSinceLastSnapshot) {
-                recordSnapshot()
+    private checkpoint() {
+        if (this.hasMutations) {
+            if (this.config.debug) {
+                console.log('[dataclient] checkpoint snapshot')
             }
-        },
-        markMutation() {
-            hasMutationsSinceLastSnapshot = true
-        },
+            this.recordSnapshot()
+        }
     }
 }

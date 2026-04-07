@@ -1,5 +1,3 @@
-// === Node Tree ===
-
 export interface Rect {
     x: number
     y: number
@@ -17,16 +15,12 @@ export interface SerializedNode {
     children?: number[]
 }
 
-// === Viewport ===
-
 export interface Viewport {
     scrollX: number
     scrollY: number
     width: number
     height: number
 }
-
-// === Events ===
 
 export interface SnapshotEvent {
     event: 'snapshot'
@@ -97,10 +91,8 @@ export interface RrwebEvent {
 
 export type SceneEvent = SnapshotEvent | MutationEvent | ActionEvent | RrwebEvent | IdentifyEvent | ExcludeEvent
 
-// === Config ===
-
 export interface Config {
-    endpoint: string | null
+    endpoint: string
     debug: boolean | 'verbose'
     batchSize: number
     flushInterval: number
@@ -118,8 +110,6 @@ export interface Tracker {
     beforeUnload?: () => void
     markMutation?: () => void
 }
-
-// === Batch ===
 
 export interface SceneBatch {
     session_id: string

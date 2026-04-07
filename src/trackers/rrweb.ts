@@ -1,48 +1,51 @@
-import type { Sender } from '../sender'
-import type { Config, Tracker } from '../types'
+import type { Config, RrwebEvent, Tracker } from '../types'
+import type { Sender } from '../utils/sender'
 import { record } from 'rrweb'
+import { MASK_SELECTOR } from '../constants'
 
-export function createRrwebTracker(config: Config, sender: Sender): Tracker {
-    let stopFn: (() => void) | null = null
+export class RrwebTracker implements Tracker {
+    private stopFn: (() => void) | null = null
 
-    return {
-        start() {
-            stopFn = record({
-                emit(event) {
-                    sender.add({
-                        event: 'rrweb',
-                        timestamp: new Date().toISOString(),
-                        rrwebEvent: event,
-                    } as any)
-                },
-                recordCrossOriginIframes: false,
-                recordCanvas: false,
-                // Mask sensitive content during replay (elements with data-scene2-mask)
-                maskTextSelector: '[data-scene2-mask]',
-                maskInputSelector: '[data-scene2-mask]',
-                maskInputOptions: { password: true },
-                maskTextFn: text => '*'.repeat(text.length),
-                sampling: {
-                    mousemove: false,
-                    mouseInteraction: true,
-                    scroll: 500,
-                    input: 'last',
-                },
-            }) ?? null
+    constructor(
+        private config: Config,
+        private sender: Sender,
+    ) {}
 
-            if (config.debug)
-                console.log('[Scene2] rrweb recording started')
-        },
-        stop() {
-            if (stopFn) {
-                stopFn()
-                stopFn = null
-            }
-        },
+    start() {
+        this.stopFn = record({
+            emit: (event) => {
+                const rrwebEvent: RrwebEvent = {
+                    event: 'rrweb',
+                    timestamp: new Date().toISOString(),
+                    rrwebEvent: event,
+                }
+                this.sender.add(rrwebEvent)
+            },
+            recordCrossOriginIframes: false,
+            recordCanvas: false,
+            maskTextSelector: MASK_SELECTOR,
+            maskInputOptions: { password: true },
+            maskTextFn: text => '*'.repeat(text.length),
+            sampling: {
+                mousemove: false,
+                mouseInteraction: true,
+                scroll: 500,
+                input: 'last',
+            },
+        }) ?? null
+
+        if (this.config.debug)
+            console.log('[dataclient] rrweb recording started')
     }
-}
 
-// Add custom event marker to rrweb timeline
-export function addRrwebMarker(tag: string, payload: unknown) {
-    record.addCustomEvent(tag, payload)
+    stop() {
+        if (this.stopFn) {
+            this.stopFn()
+            this.stopFn = null
+        }
+    }
+
+    static addMarker(tag: string, payload: unknown) {
+        record.addCustomEvent(tag, payload)
+    }
 }

@@ -1,14 +1,7 @@
-import type { SerializedNode } from './types'
+import type { SerializedNode } from '../types'
+import { RECORD_ATTRS, SKIP_TAGS } from '../constants'
 import { getElementIcon } from './icon'
 import { isMasked, maskText } from './mask'
-
-const SKIP_TAGS = new Set(['script', 'style', 'noscript', 'svg', 'link', 'meta', 'head'])
-const RECORD_ATTRS = new Set([
-    'class', 'role', 'href', 'type', 'placeholder', 'disabled', 'hidden',
-    'aria-label', 'aria-selected', 'aria-expanded', 'aria-invalid', 'aria-busy',
-    'aria-checked', 'aria-hidden', 'value', 'name', 'id', 'for', 'target',
-    'data-state', 'data-scene2-mask',
-])
 
 let nextId = 1
 const nodeToId = new WeakMap<Node, number>()
@@ -21,7 +14,9 @@ export function resetIds() {
 
 export function assignId(node: Node): number {
     const existing = nodeToId.get(node)
-    if (existing) return existing
+    if (existing) {
+        return existing
+    }
     const id = nextId++
     nodeToId.set(node, id)
     idToNode.set(id, node)
@@ -45,10 +40,13 @@ export function removeNodeId(id: number) {
 }
 
 function isVisible(el: HTMLElement): boolean {
-    if (el.hidden) return false
-    if (el.getAttribute('aria-hidden') === 'true') return false
-    // Check offsetParent — null means display:none (except for body/fixed)
-    if (!el.offsetParent && el.tagName !== 'BODY' && getComputedStyle(el).position !== 'fixed') return false
+    if (el.hidden)
+        return false
+    if (el.getAttribute('aria-hidden') === 'true')
+        return false
+    if (!el.offsetParent && el.tagName !== 'BODY' && getComputedStyle(el).position !== 'fixed') {
+        return false
+    }
     return true
 }
 
@@ -57,7 +55,9 @@ function getDirectText(el: HTMLElement): string {
     for (const child of el.childNodes) {
         if (child.nodeType === Node.TEXT_NODE) {
             const t = child.textContent?.trim()
-            if (t) text += (text ? ' ' : '') + t
+            if (t) {
+                text += (text ? ' ' : '') + t
+            }
         }
     }
     const truncated = text.slice(0, 200)
@@ -73,7 +73,6 @@ function getAttrs(el: HTMLElement): Record<string, string> | undefined {
         const value = el.getAttribute(name)
         if (value !== null && value !== '') {
             let v = value.slice(0, 200)
-            // Mask value/placeholder of sensitive inputs
             if (masked && (name === 'value' || name === 'placeholder')) {
                 v = maskText(v)
             }
@@ -87,7 +86,9 @@ function getAttrs(el: HTMLElement): Record<string, string> | undefined {
 
 function getRect(el: HTMLElement): SerializedNode['rect'] {
     const r = el.getBoundingClientRect()
-    if (r.width === 0 && r.height === 0) return undefined
+    if (r.width === 0 && r.height === 0) {
+        return undefined
+    }
     return {
         x: Math.round(r.left + window.scrollX),
         y: Math.round(r.top + window.scrollY),
@@ -98,8 +99,12 @@ function getRect(el: HTMLElement): SerializedNode['rect'] {
 
 export function serializeNode(el: HTMLElement): SerializedNode | null {
     const tag = el.tagName?.toLowerCase()
-    if (!tag || SKIP_TAGS.has(tag)) return null
-    if (!isVisible(el)) return null
+    if (!tag || SKIP_TAGS.has(tag)) {
+        return null
+    }
+    if (!isVisible(el)) {
+        return null
+    }
 
     const id = assignId(el)
     const text = getDirectText(el)
@@ -116,11 +121,21 @@ export function serializeNode(el: HTMLElement): SerializedNode | null {
     }
 
     const node: SerializedNode = { id, tag }
-    if (text) node.text = text
-    if (icon) node.icon = icon
-    if (attrs) node.attrs = attrs
-    if (rect) node.rect = rect
-    if (children.length > 0) node.children = children
+    if (text) {
+        node.text = text
+    }
+    if (icon) {
+        node.icon = icon
+    }
+    if (attrs) {
+        node.attrs = attrs
+    }
+    if (rect) {
+        node.rect = rect
+    }
+    if (children.length > 0) {
+        node.children = children
+    }
 
     return node
 }
@@ -130,7 +145,9 @@ export function serializeTree(root: HTMLElement): SerializedNode[] {
 
     function walk(el: HTMLElement) {
         const node = serializeNode(el)
-        if (!node) return
+        if (!node) {
+            return
+        }
         nodes.push(node)
         for (const child of el.children) {
             walk(child as HTMLElement)

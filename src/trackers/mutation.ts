@@ -1,102 +1,134 @@
-import type { Sender } from '../sender'
 import type { AttrChange, Config, MutationAdd, MutationEvent, TextChange, Tracker } from '../types'
-import { assignId, getNodeId, removeNodeId, serializeNode } from '../serializer'
+import type { Sender } from '../utils/sender'
+import { WATCH_ATTRS } from '../constants'
+import { getNodeId, removeNodeId, serializeNode } from '../dom/serializer'
 
-const WATCH_ATTRS = [
-    'class', 'role', 'href', 'disabled', 'hidden', 'placeholder',
-    'aria-label', 'aria-selected', 'aria-expanded', 'aria-invalid',
-    'aria-busy', 'aria-checked', 'aria-hidden', 'data-state', 'value',
-]
+export class MutationTracker implements Tracker {
+    private observer: MutationObserver | null = null
+    private debounceTimer: ReturnType<typeof setTimeout> | null = null
 
-export function createMutationTracker(
-    config: Config,
-    sender: Sender,
-    onMutation: () => void,
-): Tracker {
-    let observer: MutationObserver | null = null
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    private pendingAdds: MutationAdd[] = []
+    private pendingRemoves: number[] = []
+    private pendingTextChanges: TextChange[] = []
+    private pendingAttrChanges: AttrChange[] = []
 
-    let pendingAdds: MutationAdd[] = []
-    let pendingRemoves: number[] = []
-    let pendingTextChanges: TextChange[] = []
-    let pendingAttrChanges: AttrChange[] = []
+    constructor(
+        private config: Config,
+        private sender: Sender,
+        private onMutation: () => void,
+    ) {}
 
-    function flushMutations() {
-        debounceTimer = null
+    start() {
+        this.observer = new MutationObserver(mutations => this.handleMutations(mutations))
+        this.observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+            attributes: true,
+            attributeFilter: WATCH_ATTRS,
+        })
+    }
+
+    stop() {
+        this.observer?.disconnect()
+        this.observer = null
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer)
+        }
+    }
+
+    beforeUnload() {
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer)
+            this.flush()
+        }
+    }
+
+    private flush() {
+        this.debounceTimer = null
 
         if (
-            pendingAdds.length === 0
-            && pendingRemoves.length === 0
-            && pendingTextChanges.length === 0
-            && pendingAttrChanges.length === 0
-        ) return
+            this.pendingAdds.length === 0
+            && this.pendingRemoves.length === 0
+            && this.pendingTextChanges.length === 0
+            && this.pendingAttrChanges.length === 0
+        ) {
+            return
+        }
 
         const mutation: MutationEvent = {
             event: 'mutation',
             timestamp: new Date().toISOString(),
-            adds: pendingAdds,
-            removes: pendingRemoves,
-            text_changes: pendingTextChanges,
-            attr_changes: pendingAttrChanges,
+            adds: this.pendingAdds,
+            removes: this.pendingRemoves,
+            text_changes: this.pendingTextChanges,
+            attr_changes: this.pendingAttrChanges,
         }
 
-        if (config.debug)
-            console.log(`[Scene2] mutation: +${pendingAdds.length} -${pendingRemoves.length} text:${pendingTextChanges.length} attr:${pendingAttrChanges.length}`)
+        if (this.config.debug) {
+            console.log(`[dataclient] mutation: +${this.pendingAdds.length} -${this.pendingRemoves.length} text:${this.pendingTextChanges.length} attr:${this.pendingAttrChanges.length}`)
+        }
 
-        sender.add(mutation)
-        onMutation()
+        this.sender.add(mutation)
+        this.onMutation()
 
-        pendingAdds = []
-        pendingRemoves = []
-        pendingTextChanges = []
-        pendingAttrChanges = []
+        this.pendingAdds = []
+        this.pendingRemoves = []
+        this.pendingTextChanges = []
+        this.pendingAttrChanges = []
     }
 
-    function scheduleMutationFlush() {
-        if (debounceTimer) clearTimeout(debounceTimer)
-        debounceTimer = setTimeout(flushMutations, config.mutationDebounce)
+    private scheduleFlush() {
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer)
+        }
+        this.debounceTimer = setTimeout(() => this.flush(), this.config.mutationDebounce)
     }
 
-    function handleMutations(mutations: MutationRecord[]) {
+    private handleMutations(mutations: MutationRecord[]) {
         for (const m of mutations) {
-            // Added nodes
             for (const node of m.addedNodes) {
-                if (node.nodeType !== Node.ELEMENT_NODE) continue
+                if (node.nodeType !== Node.ELEMENT_NODE) {
+                    continue
+                }
                 const el = node as HTMLElement
                 const serialized = serializeNode(el)
-                if (!serialized) continue
+                if (!serialized) {
+                    continue
+                }
 
                 const parentId = getNodeId(el.parentElement!)
-                if (parentId === null) continue
+                if (parentId === null) {
+                    continue
+                }
 
-                pendingAdds.push({ parentId, node: serialized })
+                this.pendingAdds.push({ parentId, node: serialized })
             }
 
-            // Removed nodes
             for (const node of m.removedNodes) {
-                if (node.nodeType !== Node.ELEMENT_NODE) continue
+                if (node.nodeType !== Node.ELEMENT_NODE) {
+                    continue
+                }
                 const id = getNodeId(node)
                 if (id !== null) {
-                    pendingRemoves.push(id)
+                    this.pendingRemoves.push(id)
                     removeNodeId(id)
                 }
             }
 
-            // Text changes
             if (m.type === 'characterData' && m.target.parentElement) {
                 const parentId = getNodeId(m.target.parentElement)
                 if (parentId !== null) {
                     const text = m.target.textContent?.trim().slice(0, 200) || ''
-                    pendingTextChanges.push({ id: parentId, text })
+                    this.pendingTextChanges.push({ id: parentId, text })
                 }
             }
 
-            // Attribute changes
             if (m.type === 'attributes' && m.attributeName) {
                 const id = getNodeId(m.target)
                 if (id !== null) {
                     const value = (m.target as HTMLElement).getAttribute(m.attributeName)
-                    pendingAttrChanges.push({
+                    this.pendingAttrChanges.push({
                         id,
                         attr: m.attributeName,
                         value: value?.slice(0, 200) ?? null,
@@ -106,36 +138,12 @@ export function createMutationTracker(
         }
 
         if (
-            pendingAdds.length > 0
-            || pendingRemoves.length > 0
-            || pendingTextChanges.length > 0
-            || pendingAttrChanges.length > 0
+            this.pendingAdds.length > 0
+            || this.pendingRemoves.length > 0
+            || this.pendingTextChanges.length > 0
+            || this.pendingAttrChanges.length > 0
         ) {
-            scheduleMutationFlush()
+            this.scheduleFlush()
         }
-    }
-
-    return {
-        start() {
-            observer = new MutationObserver(handleMutations)
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true,
-                characterData: true,
-                attributes: true,
-                attributeFilter: WATCH_ATTRS,
-            })
-        },
-        stop() {
-            observer?.disconnect()
-            observer = null
-            if (debounceTimer) clearTimeout(debounceTimer)
-        },
-        beforeUnload() {
-            if (debounceTimer) {
-                clearTimeout(debounceTimer)
-                flushMutations()
-            }
-        },
     }
 }

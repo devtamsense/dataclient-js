@@ -1,5 +1,5 @@
 {
-    "name": "@konantur/scene2",
+    "name": "@devtamsense/dataclient",
     "type": "module",
     "version": "0.1.0",
     "exports": {
@@ -18,13 +18,17 @@
     "scripts": {
         "build": "tsup",
         "dev": "tsup --watch",
-        "clean": "rimraf dist"
+        "clean": "rimraf dist",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix"
     },
     "dependencies": {
         "rrweb": "^2.0.0-alpha.18"
     },
     "devDependencies": {
+        "@antfu/eslint-config": "^8.0.0",
         "@types/node": "^22.0.0",
+        "eslint": "^10.2.0",
         "rimraf": "^6.0.1",
         "tsup": "^8.5.0",
         "typescript": "^5.5.4"

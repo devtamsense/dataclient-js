@@ -5,7 +5,7 @@ export default defineConfig({
     format: ['esm', 'cjs', 'iife'],
     target: 'es2022',
     outDir: 'dist',
-    globalName: 'Scene2',
+    globalName: 'dataclient',
     splitting: false,
     sourcemap: true,
     clean: true,

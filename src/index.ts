@@ -1,15 +1,15 @@
-import type { Config, ExcludeEvent, IdentifyEvent, Tracker } from './types'
-import { getDeviceId, getSessionId } from './identity'
-import { Sender } from './sender'
-import { createActionTracker } from './trackers/action'
-import { createMutationTracker } from './trackers/mutation'
-import { createRrwebTracker } from './trackers/rrweb'
-import { createSnapshotTracker } from './trackers/snapshot'
+import type { Config, Tracker } from './types'
+import { ActionTracker } from './trackers/action'
+import { MutationTracker } from './trackers/mutation'
+import { RrwebTracker } from './trackers/rrweb'
+import { SnapshotTracker } from './trackers/snapshot'
+import { generateId, getDeviceId } from './utils/identity'
+import { Sender } from './utils/sender'
 
 export type * from './types'
 
-let config: Config = {
-    endpoint: null,
+const defaults: Config = {
+    endpoint: 'https://my.tamsense.com/api/scenes2',
     debug: false,
     batchSize: 10,
     flushInterval: 10000,
@@ -21,74 +21,53 @@ let config: Config = {
     apiKey: '',
 }
 
-let sender: Sender | null = null
-let trackers: Tracker[] = []
-let initialized = false
+export class DataClient {
+    private sender: Sender
+    private trackers: Tracker[] = []
+    private config: Config
 
-export function init(options?: Partial<Config>) {
-    if (initialized) return
+    constructor(options?: Partial<Config>) {
+        this.config = { ...defaults, ...options }
 
-    if (options)
-        config = { ...config, ...options }
+        const sessionId = generateId()
+        const deviceId = getDeviceId(this.config.deviceIdKey)
 
-    const sessionId = getSessionId(config.sessionIdKey)
-    const deviceId = getDeviceId(config.deviceIdKey)
-    sender = new Sender(config.endpoint, config.apiKey, config.batchSize, sessionId, deviceId, config.flushInterval, config.debug)
+        this.sender = new Sender(
+            this.config.endpoint,
+            this.config.apiKey,
+            this.config.batchSize,
+            sessionId,
+            deviceId,
+            this.config.flushInterval,
+        )
 
-    const snapshotTracker = createSnapshotTracker(config, sender)
-    const mutationTracker = createMutationTracker(config, sender, () => {
-        snapshotTracker.markMutation?.()
-    })
-    const actionTracker = createActionTracker(config, sender)
-    const rrwebTracker = createRrwebTracker(config, sender)
+        const snapshotTracker = new SnapshotTracker(this.config, this.sender)
+        const mutationTracker = new MutationTracker(this.config, this.sender, () => snapshotTracker.markMutation())
+        const actionTracker = new ActionTracker(this.config, this.sender)
+        const rrwebTracker = new RrwebTracker(this.config, this.sender)
 
-    trackers = [snapshotTracker, mutationTracker, actionTracker, rrwebTracker]
+        this.trackers = [snapshotTracker, mutationTracker, actionTracker, rrwebTracker]
+        this.trackers.forEach(t => t.start())
 
-    for (const tracker of trackers) tracker.start()
+        const onUnload = () => this.trackers.forEach(t => t.beforeUnload?.())
+        window.addEventListener('beforeunload', onUnload)
+        window.addEventListener('pagehide', onUnload)
 
-    const handleUnload = () => {
-        for (const tracker of trackers) tracker.beforeUnload?.()
+        console.log(`[dataclient] Initialized. Session: ${sessionId}, Device: ${deviceId}`)
     }
-    window.addEventListener('beforeunload', handleUnload)
-    window.addEventListener('pagehide', handleUnload)
 
-    initialized = true
-
-    if (config.debug)
-        console.log(`[Scene2] Initialized. Session: ${sessionId}, Device: ${deviceId}`)
-}
-
-export function setUser(userId: string) {
-    const event: IdentifyEvent = {
-        event: 'identify',
-        timestamp: new Date().toISOString(),
-        user_id: userId,
+    setUser(userId: string) {
+        this.sender.add({ event: 'identify', timestamp: new Date().toISOString(), user_id: userId })
     }
-    sender?.add(event)
-    if (config.debug)
-        console.log(`[Scene2] User identified: ${userId}`)
-}
 
-export function excludeSession(reason = '') {
-    const event: ExcludeEvent = {
-        event: 'exclude',
-        timestamp: new Date().toISOString(),
-        reason,
+    excludeSession(reason = '') {
+        this.sender.add({ event: 'exclude', timestamp: new Date().toISOString(), reason })
+        this.destroy()
     }
-    sender?.add(event)
-    if (config.debug)
-        console.log(`[Scene2] Session excluded: ${reason}`)
-    destroy()
+
+    destroy() {
+        this.trackers.forEach(t => t.stop())
+        this.trackers = []
+        this.sender.destroy()
+    }
 }
-
-export function flush() { sender?.flush() }
-
-export function destroy() {
-    for (const tracker of trackers) tracker.stop()
-    trackers = []
-    sender?.destroy()
-    sender = null
-    initialized = false
-}
-
-export default { init, setUser, excludeSession, flush, destroy }

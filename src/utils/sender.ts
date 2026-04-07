@@ -1,4 +1,4 @@
-import type { SceneBatch, SceneEvent } from './types'
+import type { SceneBatch, SceneEvent } from '../types'
 
 const STORAGE_KEY = 'sc2_pending'
 const MAX_RETRIES = 2
@@ -9,28 +9,26 @@ export class Sender {
     private isFlushing = false
 
     constructor(
-        private endpoint: string | null,
+        private endpoint: string,
         private apiKey: string,
         private batchSize: number,
         private sessionId: string,
         private deviceId: string,
         flushInterval: number,
-        private debug: boolean | 'verbose' = false,
     ) {
         this.restoreFromStorage()
         this.timer = setInterval(() => this.flush(), flushInterval)
 
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden')
+            if (document.visibilityState === 'hidden') {
                 this.flush()
+            }
         })
         window.addEventListener('beforeunload', () => this.flushSync())
         window.addEventListener('pagehide', () => this.flushSync())
     }
 
     private restoreFromStorage() {
-        // Don't restore events from previous sessions — they have old timestamps
-        // that would desync with the current session's rrweb events.
         try {
             localStorage.removeItem(STORAGE_KEY)
         }
@@ -38,7 +36,9 @@ export class Sender {
     }
 
     private saveToStorage() {
-        if (this.queue.length === 0) return
+        if (this.queue.length === 0) {
+            return
+        }
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(this.queue))
         }
@@ -46,49 +46,16 @@ export class Sender {
     }
 
     add(event: SceneEvent) {
-        if (this.debug) {
-            this.logEvent(event)
-        }
         this.queue.push(event)
-        if (this.queue.length >= this.batchSize)
+        if (this.queue.length >= this.batchSize) {
             this.flush()
-    }
-
-    private logEvent(event: SceneEvent) {
-        const style = 'color: #888; font-weight: normal'
-        const bold = 'color: #000; font-weight: bold'
-
-        switch (event.event) {
-            case 'snapshot':
-                console.log(`%c[Scene2] %csnapshot%c ${event.url} (${event.tree.length} nodes)`, style, bold, style)
-                if (this.debug === 'verbose') console.log(event.tree)
-                break
-            case 'mutation':
-                console.log(
-                    `%c[Scene2] %cmutation%c +${event.adds.length} -${event.removes.length} text:${event.text_changes.length} attr:${event.attr_changes.length}`,
-                    style, bold, style,
-                )
-                if (this.debug === 'verbose') console.log({ adds: event.adds, removes: event.removes, text_changes: event.text_changes, attr_changes: event.attr_changes })
-                break
-            case 'action':
-                console.log(`%c[Scene2] %c${event.type}%c <${event.tag}> "${event.text}"${event.value ? ` → "${event.value}"` : ''}`, style, bold, style)
-                break
-            case 'identify':
-                console.log(`%c[Scene2] %cidentify%c ${event.user_id}`, style, bold, style)
-                break
-            case 'rrweb':
-                if (this.debug === 'verbose')
-                    console.log(`%c[Scene2] %crrweb%c event`, style, bold, style, event.rrwebEvent)
-                break
-            case 'exclude':
-                console.log(`%c[Scene2] %cexclude%c ${event.reason}`, style, bold, style)
-                break
         }
     }
 
     async flush() {
-        if (this.queue.length === 0 || this.isFlushing || !this.endpoint)
+        if (this.queue.length === 0 || this.isFlushing) {
             return
+        }
 
         this.isFlushing = true
 
@@ -96,15 +63,6 @@ export class Sender {
         const batch = this.buildBatch(events)
         const json = JSON.stringify(batch)
         const url = `${this.endpoint}?key=${encodeURIComponent(this.apiKey)}`
-
-        if (this.debug) {
-            const nonRrweb = events.filter(e => e.event !== 'rrweb')
-            if (nonRrweb.length > 0) {
-                const first = nonRrweb[0] as any
-                const last = nonRrweb[nonRrweb.length - 1] as any
-                console.log(`[Scene2] flush: ${events.length} events. NonRrweb timestamps: ${first?.timestamp} → ${last?.timestamp} (now: ${new Date().toISOString()})`)
-            }
-        }
 
         const success = await this.send(json, url)
 
@@ -117,7 +75,9 @@ export class Sender {
     }
 
     private flushSync() {
-        if (this.queue.length === 0 || !this.endpoint) return
+        if (this.queue.length === 0) {
+            return
+        }
 
         const events = this.queue.splice(0)
         const batch = this.buildBatch(events)
@@ -159,7 +119,9 @@ export class Sender {
                     body: json,
                     keepalive: true,
                 })
-                if (response.ok) return true
+                if (response.ok) {
+                    return true
+                }
             }
             catch {}
 
@@ -171,7 +133,9 @@ export class Sender {
     }
 
     destroy() {
-        if (this.timer) clearInterval(this.timer)
+        if (this.timer) {
+            clearInterval(this.timer)
+        }
         this.flushSync()
     }
 }

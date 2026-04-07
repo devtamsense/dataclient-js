@@ -1,8 +1,8 @@
-export const MASK_ATTR = 'data-scene2-mask'
-export const MASK_SELECTOR = `[${MASK_ATTR}]`
+import { MASK_SELECTOR } from '../constants'
 
 export function isMasked(el: Element | Node | null): boolean {
-    if (!el) return false
+    if (!el)
+        return false
     const element = el.nodeType === Node.ELEMENT_NODE
         ? el as Element
         : el.parentElement
@@ -10,7 +10,9 @@ export function isMasked(el: Element | Node | null): boolean {
 }
 
 export function maskText(text: string): string {
-    if (!text) return text
+    if (!text) {
+        return text
+    }
     const visible = Math.max(1, Math.ceil(text.length * 0.2))
     return text.slice(0, visible) + '*'.repeat(text.length - visible)
 }

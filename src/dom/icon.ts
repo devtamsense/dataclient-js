@@ -10,6 +10,7 @@ const ICON_CLASS_PATTERNS = [
 ]
 
 const MATERIAL_CLASS_PATTERN = /\b(?:material-icons|material-symbols-[a-z]+)\b/
+const SVG_USE_HREF_PATTERN = /#(.+)/
 
 const MAX_ICON_IMG_SIZE = 48
 
@@ -54,13 +55,13 @@ function detectIcon(el: HTMLElement): string | null {
 
     const svg = el.querySelector('svg')
     if (svg) {
-        return detectSvgIcon(svg as HTMLElement)
+        return detectSvgIcon(svg)
     }
 
     return null
 }
 
-function detectSvgIcon(svg: HTMLElement): string | null {
+function detectSvgIcon(svg: Element): string | null {
     const lucide = svg.getAttribute('data-lucide')
     if (lucide) {
         return lucide
@@ -75,7 +76,7 @@ function detectSvgIcon(svg: HTMLElement): string | null {
     if (use) {
         const href = use.getAttribute('href') || use.getAttribute('xlink:href')
         if (href) {
-            const match = href.match(/#(.+)/)
+            const match = href.match(SVG_USE_HREF_PATTERN)
             if (match) {
                 return match[1]
             }
