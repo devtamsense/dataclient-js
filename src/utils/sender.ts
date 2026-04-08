@@ -6,7 +6,7 @@ const BEACON_MAX_SIZE = 60000
 export class Sender {
     private queue: SceneEvent[] = []
     private timer: ReturnType<typeof setInterval> | null = null
-    private isFlushing = false
+    private flushPromise: Promise<void> = Promise.resolve()
 
     constructor(
         private endpoint: string,
@@ -21,42 +21,29 @@ export class Sender {
 
     add(event: SceneEvent) {
         this.queue.push(event)
-        if (event.event === 'rrweb' || this.queue.length >= this.batchSize) {
+
+        // rrweb full snapshot (type 2) is large and critical — flush immediately
+        // so it's sent via fetch (no size limit) and not left for sendBeacon
+        const isRrwebSnapshot = event.event === 'rrweb'
+            && (event as any).rrwebEvent?.type === 2
+
+        if (isRrwebSnapshot || this.queue.length >= this.batchSize) {
             this.flush()
         }
     }
 
-    async flush() {
-        if (this.queue.length === 0 || this.isFlushing) {
-            return
-        }
-
-        this.isFlushing = true
-
-        const events = this.queue.splice(0)
-        const batch = this.buildBatch(events)
-        const json = JSON.stringify(batch)
-        const url = this.buildUrl()
-
-        const success = await this.send(json, url)
-
-        if (!success) {
-            this.queue.unshift(...events)
-        }
-
-        this.isFlushing = false
+    flush() {
+        // Chain flushes — no events are skipped, each flush waits for the previous
+        this.flushPromise = this.flushPromise.then(() => this.doFlush())
     }
 
     flushSync() {
-        if (this.queue.length === 0) {
-            return
-        }
+        if (this.queue.length === 0) return
 
         const events = this.queue.splice(0)
-        if (events.length === 0) return
-
         const url = this.buildUrl()
 
+        // Split into chunks that fit sendBeacon size limit
         let chunk: SceneEvent[] = []
         let chunkSize = 0
 
@@ -81,6 +68,21 @@ export class Sender {
             clearInterval(this.timer)
         }
         this.flushSync()
+    }
+
+    private async doFlush() {
+        if (this.queue.length === 0) return
+
+        const events = this.queue.splice(0)
+        const batch = this.buildBatch(events)
+        const json = JSON.stringify(batch)
+        const url = this.buildUrl()
+
+        const success = await this.send(json, url)
+
+        if (!success) {
+            this.queue.unshift(...events)
+        }
     }
 
     private sendBeacon(events: SceneEvent[], url: string) {
@@ -118,11 +120,8 @@ export class Sender {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: json,
-                    keepalive: true,
                 })
-                if (response.ok) {
-                    return true
-                }
+                if (response.ok) return true
             }
             catch {}
 
