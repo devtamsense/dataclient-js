@@ -14,6 +14,7 @@ const defaults: Config = {
     batchSize: 5,
     flushInterval: 5000,
     checkpointInterval: 30000,
+    idleTimeout: 60 * 60 * 1000,
     mutationDebounce: 200,
     inputDebounce: 1000,
     sessionIdKey: 'sc2_sid',
@@ -22,22 +23,55 @@ const defaults: Config = {
 }
 
 export class DataClient {
-    private sender: Sender
+    private sender: Sender | null = null
     private trackers: Tracker[] = []
     private config: Config
+    private deviceId: string
+    private idleTimer: ReturnType<typeof setTimeout> | null = null
+    private userId: string | null = null
 
     constructor(options?: Partial<Config>) {
         this.config = { ...defaults, ...options }
+        this.deviceId = getDeviceId(this.config.deviceIdKey)
 
+        this.startSession()
+
+        document.addEventListener('click', () => this.onActivity(), true)
+        document.addEventListener('input', () => this.onActivity(), true)
+        document.addEventListener('change', () => this.onActivity(), true)
+    }
+
+    setUser(userId: string) {
+        this.userId = userId
+        this.sender?.add({ event: 'identify', timestamp: new Date().toISOString(), user_id: userId })
+    }
+
+    excludeSession(reason = '') {
+        this.sender?.add({ event: 'exclude', timestamp: new Date().toISOString(), reason })
+        this.stopSession()
+    }
+
+    private onActivity() {
+        if (!this.sender) {
+            this.startSession()
+        }
+        this.resetIdleTimer()
+    }
+
+    private resetIdleTimer() {
+        if (this.idleTimer) clearTimeout(this.idleTimer)
+        this.idleTimer = setTimeout(() => this.stopSession(), this.config.idleTimeout)
+    }
+
+    private startSession() {
         const sessionId = generateId()
-        const deviceId = getDeviceId(this.config.deviceIdKey)
 
         this.sender = new Sender(
             this.config.endpoint,
             this.config.apiKey,
             this.config.batchSize,
             sessionId,
-            deviceId,
+            this.deviceId,
             this.config.flushInterval,
         )
 
@@ -49,29 +83,41 @@ export class DataClient {
         this.trackers = [snapshotTracker, mutationTracker, actionTracker, rrwebTracker]
         this.trackers.forEach(t => t.start())
 
+        if (this.userId) {
+            this.sender.add({ event: 'identify', timestamp: new Date().toISOString(), user_id: this.userId })
+        }
+
+        this.resetIdleTimer()
+
         const onLeave = () => {
             this.trackers.forEach(t => t.beforeUnload?.())
-            this.sender.flushSync()
+            this.sender?.flushSync()
         }
 
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') onLeave()
         })
         window.addEventListener('pagehide', onLeave)
+
+        if (this.config.debug) {
+            console.log(`[dataclient] Session started: ${sessionId}`)
+        }
     }
 
-    setUser(userId: string) {
-        this.sender.add({ event: 'identify', timestamp: new Date().toISOString(), user_id: userId })
-    }
-
-    excludeSession(reason = '') {
-        this.sender.add({ event: 'exclude', timestamp: new Date().toISOString(), reason })
-        this.destroy()
-    }
-
-    destroy() {
+    private stopSession() {
+        if (this.idleTimer) {
+            clearTimeout(this.idleTimer)
+            this.idleTimer = null
+        }
         this.trackers.forEach(t => t.stop())
         this.trackers = []
-        this.sender.destroy()
+        if (this.sender) {
+            this.sender.destroy()
+            this.sender = null
+        }
+
+        if (this.config.debug) {
+            console.log('[dataclient] Session stopped (idle timeout)')
+        }
     }
 }

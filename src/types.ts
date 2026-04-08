@@ -97,6 +97,7 @@ export interface Config {
     batchSize: number
     flushInterval: number
     checkpointInterval: number
+    idleTimeout: number
     mutationDebounce: number
     inputDebounce: number
     sessionIdKey: string
