@@ -4,7 +4,7 @@
     "version": "0.1.7",
     "description": "Session replay & product analytics SDK for web apps",
     "license": "MIT",
-    "homepage": "https://github.com/tamsensedev/dataclient-js#readme",
+    "homepage": "https://tamsense.com",
     "repository": {
         "type": "git",
         "url": "https://github.com/tamsensedev/dataclient-js"
