@@ -1,7 +1,7 @@
 # TAMsense SDK
 
 [![npm version](https://img.shields.io/npm/v/@tamsensedev/dataclient.svg)](https://www.npmjs.com/package/@tamsensedev/dataclient)
-[![npm bundle size](https://img.shields.io/bundlephobia/minzip/@tamsensedev/dataclient)](https://bundlephobia.com/package/@tamsensedev/dataclient)
+[![npm downloads](https://img.shields.io/npm/dm/@tamsensedev/dataclient.svg)](https://www.npmjs.com/package/@tamsensedev/dataclient)
 [![license](https://img.shields.io/npm/l/@tamsensedev/dataclient.svg)](https://github.com/tamsensedev/dataclient-js/blob/main/LICENSE)
 
 Capture frontend user behavior for TAMsense to detect friction across onboarding, activation, evaluation, and conversion to paid journeys.
