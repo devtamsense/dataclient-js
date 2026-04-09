@@ -22,10 +22,8 @@ export class Sender {
     add(event: SceneEvent) {
         this.queue.push(event)
 
-        // rrweb full snapshot (type 2) is large and critical — flush immediately
-        // so it's sent via fetch (no size limit) and not left for sendBeacon
         const isRrwebSnapshot = event.event === 'rrweb'
-            && (event as any).rrwebEvent?.type === 2
+            && event.rrwebEvent.type === 2
 
         if (isRrwebSnapshot || this.queue.length >= this.batchSize) {
             this.flush()
@@ -33,17 +31,16 @@ export class Sender {
     }
 
     flush() {
-        // Chain flushes — no events are skipped, each flush waits for the previous
         this.flushPromise = this.flushPromise.then(() => this.doFlush())
     }
 
     flushSync() {
-        if (this.queue.length === 0) return
+        if (this.queue.length === 0)
+            return
 
         const events = this.queue.splice(0)
         const url = this.buildUrl()
 
-        // Split into chunks that fit sendBeacon size limit
         let chunk: SceneEvent[] = []
         let chunkSize = 0
 
@@ -71,7 +68,8 @@ export class Sender {
     }
 
     private async doFlush() {
-        if (this.queue.length === 0) return
+        if (this.queue.length === 0)
+            return
 
         const events = this.queue.splice(0)
         const batch = this.buildBatch(events)
@@ -121,7 +119,8 @@ export class Sender {
                     headers: { 'Content-Type': 'application/json' },
                     body: json,
                 })
-                if (response.ok) return true
+                if (response.ok)
+                    return true
             }
             catch {}
 

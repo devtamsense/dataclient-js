@@ -59,7 +59,8 @@ export class DataClient {
     }
 
     private resetIdleTimer() {
-        if (this.idleTimer) clearTimeout(this.idleTimer)
+        if (this.idleTimer)
+            clearTimeout(this.idleTimer)
         this.idleTimer = setTimeout(() => this.stopSession(), this.config.idleTimeout)
     }
 
@@ -95,7 +96,8 @@ export class DataClient {
         }
 
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden') onLeave()
+            if (document.visibilityState === 'hidden')
+                onLeave()
         })
         window.addEventListener('pagehide', onLeave)
 

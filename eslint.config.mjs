@@ -12,6 +12,7 @@ export default antfu({
     ignores: [
         'dist/**',
         'node_modules/**',
+        '.github/**',
     ],
 }, {
     rules: {

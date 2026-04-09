@@ -86,7 +86,7 @@ export interface ExcludeEvent {
 export interface RrwebEvent {
     event: 'rrweb'
     timestamp: string
-    rrwebEvent: unknown
+    rrwebEvent: { type: number, [key: string]: unknown }
 }
 
 export type SceneEvent = SnapshotEvent | MutationEvent | ActionEvent | RrwebEvent | IdentifyEvent | ExcludeEvent
