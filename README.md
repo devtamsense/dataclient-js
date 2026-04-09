@@ -1,11 +1,24 @@
 # TAMsense SDK
 
+[![npm version](https://img.shields.io/npm/v/@tamsensedev/dataclient.svg)](https://www.npmjs.com/package/@tamsensedev/dataclient)
+[![npm bundle size](https://img.shields.io/bundlephobia/minzip/@tamsensedev/dataclient)](https://bundlephobia.com/package/@tamsensedev/dataclient)
+[![license](https://img.shields.io/npm/l/@tamsensedev/dataclient.svg)](https://github.com/tamsensedev/dataclient-js/blob/main/LICENSE)
+
 Capture frontend user behavior for TAMsense to detect friction across onboarding, activation, evaluation, and conversion to paid journeys.
 
-TAMsense helps SaaS companies turn more free users into paying customers by generating specific product recommendations based on the analysis of user behavior across the entire product
+TAMsense helps SaaS companies turn more free users into paying customers by generating specific product recommendations based on the analysis of user behavior across the entire product.
 
-**Looking to improve conversion to paid?** Support us on Product Hunt by subscribing for launch updates https://www.producthunt.com/products/tamsense?launch=tamsense
+### Features
 
+- **Session replay** — full video recording via rrweb
+- **DOM snapshots** — serialized page structure for AI analysis
+- **User actions** — clicks, inputs, form changes with element context
+- **Auto idle management** — sessions auto-stop after inactivity, restart on interaction
+- **Privacy first** — mask sensitive data with a single HTML attribute
+- **Lightweight** — small bundle, no impact on page performance
+- **Framework agnostic** — works with React, Vue, Nuxt, Next.js, Angular, or plain JS
+
+**Looking to improve conversion to paid?** Support us on [Product Hunt](https://www.producthunt.com/products/tamsense?launch=tamsense)
 
 ---
 
