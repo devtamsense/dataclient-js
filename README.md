@@ -76,7 +76,7 @@ npm install @tamsensedev/dataclient
 import { DataClient } from '@tamsensedev/dataclient'
 
 const client = new DataClient({
-  apiKey: 'YOUR_API_KEY'
+    apiKey: 'YOUR_API_KEY'
 })
 ```
 
@@ -144,9 +144,9 @@ Passwords are always masked automatically.
 import { DataClient } from '@tamsensedev/dataclient'
 
 export default defineNuxtPlugin(() => {
-  const client = new DataClient({
-    apiKey: 'YOUR_API_KEY'
-  })
+    const client = new DataClient({
+        apiKey: 'YOUR_API_KEY'
+    })
 })
 ```
 
@@ -157,7 +157,7 @@ export default defineNuxtPlugin(() => {
 import { DataClient } from '@tamsensedev/dataclient'
 
 const client = new DataClient({
-  apiKey: 'YOUR_API_KEY'
+    apiKey: 'YOUR_API_KEY'
 })
 
 // After login:
@@ -171,7 +171,7 @@ client.setUser(user.id)
 import { DataClient } from '@tamsensedev/dataclient'
 
 const client = new DataClient({
-  apiKey: 'YOUR_API_KEY'
+    apiKey: 'YOUR_API_KEY'
 })
 
 app.provide('dataclient', client)
@@ -221,17 +221,17 @@ import { Component, OnInit } from '@angular/core'
 import { DataClient } from '@tamsensedev/dataclient'
 
 @Component({
-  selector: 'app-root',
-  template: '<router-outlet></router-outlet>'
+    selector: 'app-root',
+    template: '<router-outlet></router-outlet>'
 })
 export class AppComponent implements OnInit {
-  private client: DataClient | null = null
+    private client: DataClient | null = null
 
-  ngOnInit() {
-    this.client = new DataClient({
-      apiKey: 'YOUR_API_KEY'
-    })
-  }
+    ngOnInit() {
+        this.client = new DataClient({
+            apiKey: 'YOUR_API_KEY'
+        })
+    }
 }
 ```
 

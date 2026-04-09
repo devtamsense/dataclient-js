@@ -13,6 +13,7 @@ export default antfu({
         'dist/**',
         'node_modules/**',
         '.github/**',
+        '**/*.md',
     ],
 }, {
     rules: {
